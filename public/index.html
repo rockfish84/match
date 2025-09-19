@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>도형 분류</title>
+    <style>
+        :root {
+            --bg: #0b0c10;
+            --panel: #13151a;
+            --ink: #e8eaf0;
+            --muted: #a9b0bf;
+            --grid: #3a3f4b;
+            --gap: 6px;
+            --good: #2ecc71;
+            --bad: #ff6b6b;
+
+            --clue-size: clamp(22px, 2.8vw, 36px);
+            --section-size: clamp(18px, 2.2vw, 26px);
+
+            --gutter-left: 72px;
+            --gutter-top: 56px;
+
+            --selector-nudge: 10px;
+        }
+
+        html,
+        body {
+            min-height: 100%
+        }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            color: var(--ink);
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, Helvetica, Arial;
+            background: radial-gradient(1200px 800px at 20% -10%, #1b1f2a 0%, var(--bg) 50%) fixed;
+        }
+
+        .app {
+            width: min(1200px, 96vw);
+            margin: 0 auto
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-weight: 800;
+            letter-spacing: .2px;
+            font-size: clamp(22px, 3.2vw, 34px)
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid #232735;
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .35)
+        }
+
+        p.caption {
+            margin: 0;
+            white-space: pre-line;
+            line-height: 1.6
+        }
+
+        /* 좌우 꽉 채우는 2열 */
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .col {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: 0;
+            align-items: center
+        }
+
+        .section {
+            width: 100%;
+            font-weight: 800;
+            font-size: var(--section-size);
+            text-align: center
+        }
+
+        /* 보드(숫자 가터 분리) */
+        .boardwrap {
+            display: grid;
+            grid-template-columns: var(--gutter-left) 1fr;
+            grid-template-rows: var(--gutter-top) 1fr;
+            gap: var(--gap);
+            width: 100%;
+        }
+
+        .board-title {
+            width: auto;
+            margin-left: calc(var(--gutter-left) + var(--gap));
+            text-align: center;
+            align-self: flex-start;
+        }
+
+        .clue-top,
+        .clue-left {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e6edf3;
+            font-weight: 900;
+            font-size: var(--clue-size);
+            line-height: 1;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .top-row {
+            grid-column: 2/3;
+            grid-row: 1/2;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--gap);
+        }
+
+        .left-col {
+            grid-column: 1/2;
+            grid-row: 2/3;
+            display: grid;
+            grid-template-rows: repeat(4, 1fr);
+            gap: var(--gap);
+        }
+
+        .boardbox {
+            grid-column: 2/3;
+            grid-row: 2/3;
+            width: 100%;
+            aspect-ratio: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .board {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: var(--gap);
+            border: 2px solid var(--grid);
+            border-radius: 12px;
+            background: #0f1117;
+            box-sizing: border-box;
+        }
+
+        .cell {
+            background: #13151a;
+            border: 1px solid var(--grid);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        /* 도형 선택 */
+        .selectorBox {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: auto;
+            margin-top: 0;
+        }
+
+        .selector-title {
+            width: 100%;
+            text-align: center
+        }
+
+        .selector {
+            width: 100%;
+            aspect-ratio: 1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: var(--gap);
+            margin-top: calc(var(--gutter-top) + var(--gap) + var(--selector-nudge));
+        }
+
+        .selector img {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            object-fit: cover;
+            cursor: grab;
+            display: block;
+        }
+
+        .selector img:active {
+            cursor: grabbing
+        }
+
+        .disabled {
+            opacity: .5;
+            pointer-events: none
+        }
+
+        /* ===== 공통 하단 액션(버튼+플래그) - 전체 중앙 정렬 ===== */
+        .actions {
+            grid-column: 1 / -1;
+            /* 두 칼럼 전체 span */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--grid);
+            background: #0f1117;
+            color: var(--ink);
+            font-weight: 700;
+            cursor: pointer
+        }
+
+        .flag-card {
+            display: none;
+            width: min(720px, 92%);
+            border: 1px dashed #2b2f3b;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .msg {
+            font-weight: 700;
+            margin-bottom: 8px
+        }
+
+        .msg.ok {
+            color: var(--good)
+        }
+
+        .msg.err {
+            color: var(--bad)
+        }
+
+        .flag-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            align-items: center
+        }
+
+        .flag-row input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--grid);
+            background: #0f1117;
+            color: var(--ink);
+            min-width: 240px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <h1>도형 4×4 분류</h1>
+
+        <div class="panel">
+            <p class="caption">
+                퍼플이는 다락방을 뒤지던 중, 오래된 책장에서 한 상자를 발견했다. 상자에는 4×4 보드와 16장의 흑백 무늬 카드가 들어 있었다.
+                각 카드는 5×5 무늬이며, 행·열의 숫자는 배치 규칙의 단서이다. 퍼즐을 풀어 보드를 완성하라.
+            </p>
+        </div>
+
+        <div class="panel">
+            <div class="row">
+                <!-- 왼쪽: 퍼즐 보드 -->
+                <div class="col">
+                    <div id="boardTitle" class="section board-title">퍼즐 보드</div>
+
+                    <div class="boardwrap" id="boardwrap">
+                        <div class="top-row">
+                            <div class="clue-top">1</div>
+                            <div class="clue-top">2</div>
+                            <div class="clue-top">3</div>
+                            <div class="clue-top">5</div>
+                        </div>
+                        <div class="left-col">
+                            <div class="clue-left">0</div>
+                            <div class="clue-left">1</div>
+                            <div class="clue-left">2</div>
+                            <div class="clue-left">4</div>
+                        </div>
+
+                        <div class="boardbox" id="boardbox">
+                            <div class="board" id="board">
+                                <div class="cell" data-idx="0" draggable="true"></div>
+                                <div class="cell" data-idx="1" draggable="true"></div>
+                                <div class="cell" data-idx="2" draggable="true"></div>
+                                <div class="cell" data-idx="3" draggable="true"></div>
+                                <div class="cell" data-idx="4" draggable="true"></div>
+                                <div class="cell" data-idx="5" draggable="true"></div>
+                                <div class="cell" data-idx="6" draggable="true"></div>
+                                <div class="cell" data-idx="7" draggable="true"></div>
+                                <div class="cell" data-idx="8" draggable="true"></div>
+                                <div class="cell" data-idx="9" draggable="true"></div>
+                                <div class="cell" data-idx="10" draggable="true"></div>
+                                <div class="cell" data-idx="11" draggable="true"></div>
+                                <div class="cell" data-idx="12" draggable="true"></div>
+                                <div class="cell" data-idx="13" draggable="true"></div>
+                                <div class="cell" data-idx="14" draggable="true"></div>
+                                <div class="cell" data-idx="15" draggable="true"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 오른쪽: 도형 선택 -->
+                <div class="col">
+                    <div id="selectorBox" class="selectorBox">
+                        <div class="section selector-title">도형 선택</div>
+                        <div class="selector" id="selector">
+                            <img src="/4x4/1.png" id="1" draggable="true" />
+                            <img src="/4x4/2.png" id="2" draggable="true" />
+                            <img src="/4x4/3.png" id="3" draggable="true" />
+                            <img src="/4x4/4.png" id="4" draggable="true" />
+                            <img src="/4x4/5.png" id="5" draggable="true" />
+                            <img src="/4x4/6.png" id="6" draggable="true" />
+                            <img src="/4x4/7.png" id="7" draggable="true" />
+                            <img src="/4x4/8.png" id="8" draggable="true" />
+                            <img src="/4x4/9.png" id="9" draggable="true" />
+                            <img src="/4x4/10.png" id="10" draggable="true" />
+                            <img src="/4x4/11.png" id="11" draggable="true" />
+                            <img src="/4x4/12.png" id="12" draggable="true" />
+                            <img src="/4x4/13.png" id="13" draggable="true" />
+                            <img src="/4x4/14.png" id="14" draggable="true" />
+                            <img src="/4x4/15.png" id="15" draggable="true" />
+                            <img src="/4x4/16.png" id="16" draggable="true" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ✅ 전체 중앙 액션 영역 -->
+                <div class="actions">
+                    <div class="controls">
+                        <button class="btn" id="checkBtn">정답 확인</button>
+                        <button class="btn" id="resetBtn">초기화</button>
+                    </div>
+
+                    <div class="panel flag-card" id="flagCard">
+                        <div class="msg" id="judgeMsg"></div>
+                        <div class="flag-row" id="flagRow" style="display:none">
+                            <input id="flagText" readonly />
+                            <button class="btn" id="copyBtn">복사</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- /actions -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* -------- 상태 -------- */
+        const cells = Array.from(document.querySelectorAll('.cell'));
+        const selector = document.getElementById('selector');
+        const selectorBox = document.getElementById('selectorBox');
+        const boardTitle = document.getElementById('boardTitle');
+        const thumbs = Array.from(selector.querySelectorAll('img'));
+        const imageGrid = Array.from({ length: 4 }, () => Array(4).fill(null));
+        const shapeSrc = (id) => `/4x4/${id}.png`;
+        const enableThumb = (id) => { const el = document.getElementById(String(id)); if (el) el.classList.remove('disabled'); };
+        const disableThumb = (id) => { const el = document.getElementById(String(id)); if (el) el.classList.add('disabled'); };
+
+        /* 드래그 시작(썸네일) */
+        thumbs.forEach(img => {
+            img.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('type', 'thumb');
+                e.dataTransfer.setData('id', img.id);
+            });
+        });
+
+        /* 보드 셀 드래그/드롭 */
+        cells.forEach((cell, idx) => {
+            const r = Math.floor(idx / 4), c = idx % 4;
+
+            cell.addEventListener('dragstart', e => {
+                const id = imageGrid[r][c];
+                if (!id) { e.preventDefault(); return; }
+                e.dataTransfer.setData('type', 'cell');
+                e.dataTransfer.setData('id', id);
+                e.dataTransfer.setData('row', String(r));
+                e.dataTransfer.setData('col', String(c));
+            });
+
+            cell.addEventListener('dragover', e => e.preventDefault());
+            cell.addEventListener('drop', e => {
+                e.preventDefault();
+                const type = e.dataTransfer.getData('type');
+                const theId = e.dataTransfer.getData('id');
+                if (!theId) return;
+
+                const prev = imageGrid[r][c]; // 현재 이 칸에 있던 값
+
+                if (type === 'thumb') {
+                    // 썸네일에서 가져온 경우
+                    if (prev) enableThumb(prev);   // 기존 카드 복구
+                    disableThumb(theId);           // 새 카드 비활성화
+                    imageGrid[r][c] = String(theId);
+                    cell.style.backgroundImage = `url(${shapeSrc(theId)})`;
+                }
+
+                if (type === 'cell') {
+                    const sr = Number(e.dataTransfer.getData('row'));
+                    const sc = Number(e.dataTransfer.getData('col'));
+                    if (sr === r && sc === c) return; // 같은 칸이면 무시
+
+                    // 원래 드래그한 셀에 있던 카드
+                    const draggedId = imageGrid[sr][sc];
+
+                    // 드래그한 셀에는 현재 칸(prev)을 넣어준다 (swap)
+                    imageGrid[sr][sc] = prev;
+                    cells[sr * 4 + sc].style.backgroundImage = prev ? `url(${shapeSrc(prev)})` : '';
+
+                    // 현재 칸에는 draggedId를 넣는다
+                    imageGrid[r][c] = draggedId;
+                    cell.style.backgroundImage = `url(${shapeSrc(draggedId)})`;
+                }
+            });
+        });
+
+        /* 선택창으로 드롭하면 반납 */
+        selector.addEventListener('dragover', e => e.preventDefault());
+        selector.addEventListener('drop', e => {
+            e.preventDefault();
+            const type = e.dataTransfer.getData('type');
+            if (type !== 'cell') return;
+            const id = e.dataTransfer.getData('id');
+            const sr = Number(e.dataTransfer.getData('row'));
+            const sc = Number(e.dataTransfer.getData('col'));
+            imageGrid[sr][sc] = null;
+            cells[sr * 4 + sc].style.backgroundImage = '';
+            enableThumb(id);
+        });
+
+        /* 메시지/FLAG 뷰 */
+        const flagCard = document.getElementById('flagCard');
+        const judgeMsg = document.getElementById('judgeMsg');
+        const flagRow = document.getElementById('flagRow');
+        function showMsgOk(t) { flagCard.style.display = 'block'; judgeMsg.className = 'msg ok'; judgeMsg.textContent = t; }
+        function showMsgErr(t) { flagCard.style.display = 'block'; judgeMsg.className = 'msg err'; judgeMsg.textContent = t; flagRow.style.display = 'none'; }
+
+        /* 크기 동기화 + 제목 폭 맞추기 */
+        function syncSizes() {
+            const box = document.getElementById('boardbox');
+            if (!box) return;
+            const side = box.getBoundingClientRect().width;
+
+            selector.style.maxWidth = side + 'px';
+            selector.style.width = side + 'px';
+            selector.style.height = side + 'px';
+            selectorBox.style.width = side + 'px';
+
+            boardTitle.style.width = side + 'px';
+        }
+        window.addEventListener('load', syncSizes);
+        window.addEventListener('resize', syncSizes);
+
+        /* 초기화 */
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+                imageGrid[r][c] = null; cells[r * 4 + c].style.backgroundImage = '';
+            }
+            thumbs.forEach(t => t.classList.remove('disabled'));
+            flagCard.style.display = 'none'; judgeMsg.textContent = ''; flagRow.style.display = 'none';
+            syncSizes();
+        });
+
+        /* 정답 확인 */
+        document.getElementById('checkBtn').addEventListener('click', async () => {
+            const flat = imageGrid.flat();
+            if (flat.some(v => !v)) { showMsgErr('모든 칸을 드래그해 채워 주세요.'); return; }
+            try {
+                const res = await fetch('/shape/check', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ grid: imageGrid })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    showMsgOk('정답입니다!');
+                    flagRow.style.display = 'flex';
+                    document.getElementById('flagText').value = data.flag;
+                } else {
+                    showMsgErr('오답입니다.');
+                }
+            } catch (e) {
+                showMsgErr('채점 중 오류가 발생했습니다.');
+                console.error(e);
+            }
+        });
+
+        /* 복사 */
+        document.getElementById('copyBtn').addEventListener('click', async () => {
+            const t = document.getElementById('flagText');
+            t.select(); t.setSelectionRange(0, 9999);
+            try { await navigator.clipboard.writeText(t.value); } catch { }
+        });
+    </script>
+</body>
+
+</html>
